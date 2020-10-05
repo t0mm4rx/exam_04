@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+// A single command
 typedef struct s_cmd
 {
 	char *bin;
@@ -11,15 +12,19 @@ typedef struct s_cmd
 	int out;
 } t_cmd;
 
+// Static array of commands, no malloc, no linked-list
 t_cmd cmds[1000];
+// Copy of envp, available everywere
 char **env;
 
+// If a fatal error occurs
 void fatal(void)
 {
 	printf("error: fatal\n");
-	exit(0);
+	exit(1);
 }
 
+// Free all argv arrays for all commands
 void free_cmds(void)
 {
 	int i = 0;
@@ -27,6 +32,7 @@ void free_cmds(void)
 		free(cmds[i++].argv);
 }
 
+// Are a and b equals?
 int equ(char *a, char *b)
 {
 	int i = 0;
@@ -35,6 +41,7 @@ int equ(char *a, char *b)
 	return (a[i] == b[i]);
 }
 
+// Create an empty commands array
 void init_cmds(void)
 {
 	int i = -1;
@@ -45,6 +52,7 @@ void init_cmds(void)
 	}
 }
 
+// Debug only, to print the array of commnds
 void print_cmds(void)
 {
 	int i = -1;
@@ -59,6 +67,7 @@ void print_cmds(void)
 	}
 }
 
+// Copy the argv of the last command, add str, free the previous argv
 void add_argv(char *str)
 {
 	int i = 0;
@@ -81,6 +90,8 @@ void add_argv(char *str)
 	cmds[i].argv = tmp;
 }
 
+// Create a command
+// Malloc argv
 void add_cmd(char *str)
 {
 	int i = 0;
@@ -96,6 +107,7 @@ void add_cmd(char *str)
 	cmds[i].out = 1;
 }
 
+// Set the last created command to piped
 void set_piped()
 {
 	int i = 0;
@@ -106,6 +118,9 @@ void set_piped()
 	cmds[i].piped = 1;
 }
 
+// Loop over args
+// If first we use arg to create a new command, else we consider arg as an argument
+// If arg is ; or |, we skip, we set last created command to piped and pass first to false
 void parse_args(int argc, char **argv)
 {
 	int i = 0;
@@ -132,6 +147,10 @@ void parse_args(int argc, char **argv)
 	}
 }
 
+// Create and set io for a group of piped commands
+// We connect every n command to the n + 1 with a pipe
+// Don't forget: pipe output is index 0, pipe input index 1
+// So output of n is pipe[0], input of n + 1 is pipe[1]
 void io(int start, int end)
 {
 	int i = start;
@@ -145,6 +164,13 @@ void io(int start, int end)
 	}
 }
 
+// Exec a single command, in order:
+// fork
+// redirect io
+// exec the command
+// exit the process
+// wait
+// close our redirections
 void exec(int i)
 {
 	int pid = fork();
@@ -169,6 +195,7 @@ void exec(int i)
 	}
 }
 
+// cd built-in
 void cd(int i)
 {
 	int size = 0;
@@ -182,6 +209,7 @@ void cd(int i)
 	chdir(cmds[i].argv[1]);
 }
 
+// Execute a group of piped commands
 void exec_pipe(int start, int end)
 {
 	int i = start;
@@ -197,6 +225,9 @@ void exec_pipe(int start, int end)
 	}
 }
 
+// After all the parsing is done, we group command by pipe group and we execute each group
+// ex: ls | wc; ps; ps | rev | cut
+// 3 groups: "ls | wc" (0, 1), "ps" (2, 2) and "ps | rev | cut" (3, 5)
 void exec_cmds(void)
 {
 	int i = 0;
@@ -210,6 +241,8 @@ void exec_cmds(void)
 	}
 }
 
+
+// Entry point of the program, don't forget to get envp
 int main(int argc, char **argv, char **envp)
 {
 	env = envp;
